@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prashanth Medicals - Online Store</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Custom scrollbar for better look */
+        .product-grid {
+            scrollbar-width: thin;
+            scrollbar-color: #3b82f6 #e5e7eb;
+        }
+        .product-grid::-webkit-scrollbar {
+            width: 8px;
+        }
+        .product-grid::-webkit-scrollbar-thumb {
+            background-color: #3b82f6;
+            border-radius: 4px;
+        }
+        .product-grid::-webkit-scrollbar-track {
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header & Navigation -->
+    <header class="bg-blue-800 text-white shadow-lg sticky top-0 z-10">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-3xl font-bold">Prashanth Medicals</h1>
+            <button id="toggle-cart-btn" class="relative p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition duration-200 shadow-md focus:outline-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span id="cart-item-count" class="absolute -top-1 -right-1 bg-red-500 text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">0</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex flex-1 container mx-auto p-4 gap-6">
+
+        <!-- Product Grid -->
+        <section class="flex-1 overflow-y-auto product-grid" style="max-height: calc(100vh - 100px);">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6 border-b pb-2">Our 100 Medical Products</h2>
+            <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Products will be injected here by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Cart Sidebar (Hidden by default on mobile) -->
+        <aside id="cart-sidebar" class="w-full lg:w-96 bg-white p-6 rounded-xl shadow-2xl transition-transform duration-300 transform translate-x-full fixed right-0 top-0 h-full lg:sticky lg:top-20 lg:h-auto lg:translate-x-0 overflow-y-auto z-20">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800">Your Cart</h3>
+                <button id="close-cart-btn" class="lg:hidden text-gray-500 hover:text-gray-700 focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="cart-items" class="space-y-4 min-h-40">
+                <!-- Cart items will be injected here by JavaScript -->
+                <p id="empty-cart-message" class="text-gray-500 text-center">Your cart is empty.</p>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <div class="flex justify-between items-center font-bold text-lg text-gray-800">
+                    <span>Total Items:</span>
+                    <span id="cart-total-items">0</span>
+                </div>
+                <div class="flex justify-between items-center font-bold text-xl text-blue-800 mt-2">
+                    <span>Est. Total:</span>
+                    <span id="cart-total-price">₹0.00</span>
+                </div>
+            </div>
+            
+            <button onclick="checkout()" class="w-full mt-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200 shadow-md focus:outline-none disabled:bg-gray-400" id="checkout-btn" disabled>
+                Send Order via Email
+            </button>
+
+            <!-- Custom Modal for Confirmation (replaces alert/confirm) -->
+            <div id="confirmation-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4">
+                <div class="bg-white rounded-lg shadow-2xl p-6 max-w-sm w-full">
+                    <h4 class="text-xl font-bold text-blue-800 mb-3">Order Sent!</h4>
+                    <p class="text-gray-700 mb-4">Your order details have been compiled and sent to your default email client, addressed to the owner.</p>
+                    <p class="text-sm text-red-600 font-medium">Please open the draft email and click "Send" to complete the order.</p>
+                    <button onclick="closeModal()" class="w-full mt-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">Close</button>
+                </div>
+            </div>
+
+        </aside>
+
+    </main>
+
+    <script>
+        // Global Constants
+        const OWNER_EMAIL = "rahulkudari7@gmail.com";
+        const PRODUCT_COUNT = 100;
+        
+        // --- State Variables ---
+        let products = [];
+        let cart = new Map(); // Stores {productId: quantity}
+
+        // --- DOM Elements ---
+        const productListEl = document.getElementById('product-list');
+        const cartItemsEl = document.getElementById('cart-items');
+        const cartItemCountEl = document.getElementById('cart-item-count');
+        const emptyCartMessageEl = document.getElementById('empty-cart-message');
+        const cartSidebarEl = document.getElementById('cart-sidebar');
+        const toggleCartBtn = document.getElementById('toggle-cart-btn');
+        const closeCartBtn = document.getElementById('close-cart-btn');
+        const checkoutBtn = document.getElementById('checkout-btn');
+        const modalEl = document.getElementById('confirmation-modal');
+
+        // --- Utility Functions ---
+
+        /**
+         * Generates a unique list of medical products.
+         */
+        function generateProducts(count) {
+            const productNames = [
+                "Digital Thermometer", "Pulse Oximeter", "Blood Pressure Monitor", 
+                "First Aid Kit (Standard)", "Pain Relief Gel", "Antiseptic Wipes (Box of 50)",
+                "Vitamin C Tablets (1000mg)", "N95 Face Masks (Pack of 10)", "Disposable Gloves (Box)",
+                "Glucose Testing Strips", "Wheelchair (Standard)", "Crutches (Adjustable)", 
+                "Nebulizer Machine", "Heating Pad (Electric)", "Surgical Tape"
+            ];
+
+            const generated = [];
+            for (let i = 1; i <= count; i++) {
+                const nameIndex = (i - 1) % productNames.length;
+                const baseName = productNames[nameIndex];
+                const productName = `${baseName} (Model ${i.toString().padStart(3, '0')})`;
+                const price = (50 + (i % 50) * 10) + (Math.random() * 50); // Generates a diverse price range
+                const id = `prod_${i}`;
+                
+                generated.push({
+                    id: id,
+                    name: productName,
+                    price: parseFloat(price.toFixed(2)),
+                    imageUrl: `https://placehold.co/400x300/1e40af/ffffff?text=Product+${i}`,
+                    description: `High-quality medical product for essential health monitoring. SKU: ${id}`
+                });
+            }
+            return generated;
+        }
+
+        // --- Rendering Functions ---
+
+        /**
+         * Renders all products onto the main grid.
+         */
+        function renderProducts() {
+            productListEl.innerHTML = products.map(product => `
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 overflow-hidden flex flex-col">
+                    <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-40 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x300/6b7280/ffffff?text=No+Image';">
+                    <div class="p-4 flex flex-col flex-1">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-2">${product.name}</h4>
+                        <p class="text-sm text-gray-500 mb-3">${product.description}</p>
+                        <div class="mt-auto flex justify-between items-center pt-2">
+                            <span class="text-xl font-bold text-green-600">₹${product.price.toFixed(2)}</span>
+                            <button onclick="addToCart('${product.id}')" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition duration-200 shadow-md">
+                                Add to Cart
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /**
+         * Renders the current state of the shopping cart.
+         */
+        function renderCart() {
+            cartItemsEl.innerHTML = '';
+            let totalItems = 0;
+            let totalPrice = 0;
+            
+            if (cart.size === 0) {
+                emptyCartMessageEl.classList.remove('hidden');
+                checkoutBtn.disabled = true;
+                document.getElementById('cart-total-items').textContent = '0';
+                document.getElementById('cart-total-price').textContent = '₹0.00';
+                cartItemCountEl.textContent = '0';
+                return;
+            }
+
+            emptyCartMessageEl.classList.add('hidden');
+            checkoutBtn.disabled = false;
+
+            // Iterate over the cart Map
+            for (const [productId, quantity] of cart.entries()) {
+                const product = products.find(p => p.id === productId);
+                if (!product) continue;
+
+                const itemTotal = product.price * quantity;
+                totalItems += quantity;
+                totalPrice += itemTotal;
+
+                cartItemsEl.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg shadow-sm">
+                        <div class="flex-1 min-w-0 mr-3">
+                            <p class="text-sm font-medium truncate">${product.name}</p>
+                            <p class="text-xs text-gray-500">₹${product.price.toFixed(2)} x ${quantity}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="updateCart('${product.id}', -1)" class="text-gray-500 hover:text-red-600">-</button>
+                            <span class="font-semibold w-4 text-center">${quantity}</span>
+                            <button onclick="updateCart('${product.id}', 1)" class="text-gray-500 hover:text-green-600">+</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Update header and totals
+            document.getElementById('cart-total-items').textContent = totalItems;
+            document.getElementById('cart-total-price').textContent = `₹${totalPrice.toFixed(2)}`;
+            cartItemCountEl.textContent = totalItems;
+        }
+
+        // --- Cart Management Functions ---
+
+        /**
+         * Adds a product to the cart or increases its quantity.
+         * @param {string} productId - The ID of the product.
+         */
+        function addToCart(productId) {
+            const currentQuantity = cart.get(productId) || 0;
+            cart.set(productId, currentQuantity + 1);
+            renderCart();
+            // Show cart on first addition (especially for mobile)
+            if (cart.size === 1) {
+                openCart();
+            }
+        }
+
+        /**
+         * Updates the quantity of a product in the cart.
+         * @param {string} productId - The ID of the product.
+         * @param {number} delta - The change in quantity (+1 or -1).
+         */
+        function updateCart(productId, delta) {
+            const currentQuantity = cart.get(productId);
+            if (currentQuantity === undefined) return;
+
+            const newQuantity = currentQuantity + delta;
+
+            if (newQuantity <= 0) {
+                cart.delete(productId);
+            } else {
+                cart.set(productId, newQuantity);
+            }
+            renderCart();
+        }
+
+        /**
+         * Handles the checkout process by generating a mailto link.
+         */
+        function checkout() {
+            if (cart.size === 0) return;
+
+            // 1. Compile order details
+            let orderSummary = "Order Details:\n\n";
+            let totalPrice = 0;
+
+            for (const [productId, quantity] of cart.entries()) {
+                const product = products.find(p => p.id === productId);
+                if (product) {
+                    const itemTotal = product.price * quantity;
+                    totalPrice += itemTotal;
+                    // Note: mailto body must be URL-encoded.
+                    orderSummary += `${quantity} x ${product.name} (ID: ${productId}) @ ₹${product.price.toFixed(2)} each\n`;
+                }
+            }
+
+            orderSummary += `\nTotal Estimated Price: ₹${totalPrice.toFixed(2)}\n`;
+            orderSummary += `\n\n--- Customer Information Required ---\n`;
+            orderSummary += `Customer Name: [ENTER NAME]\n`;
+            orderSummary += `Contact Phone: [ENTER PHONE]\n`;
+            orderSummary += `Delivery Address: [ENTER FULL ADDRESS]\n`;
+            orderSummary += `\nNOTE: This is an unconfirmed order. The medical store will contact you for confirmation and final billing.\n`;
+
+            const subject = encodeURIComponent("New Online Order from Prashanth Medicals");
+            const body = encodeURIComponent(orderSummary);
+
+            const mailtoLink = `mailto:${OWNER_EMAIL}?subject=${subject}&body=${body}`;
+
+            // 2. Open the email client
+            window.location.href = mailtoLink;
+
+            // 3. Show confirmation modal
+            showModal();
+
+            // Clear the cart after initiating the email process
+            cart.clear();
+            renderCart();
+        }
+        
+        // --- Modal Control ---
+        function showModal() {
+            modalEl.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            modalEl.classList.add('hidden');
+        }
+
+        // --- Sidebar Control ---
+        function openCart() {
+            cartSidebarEl.classList.remove('translate-x-full');
+            document.body.classList.add('overflow-hidden'); // Prevent background scroll on mobile
+        }
+
+        function closeCart() {
+            cartSidebarEl.classList.add('translate-x-full');
+            document.body.classList.remove('overflow-hidden');
+        }
+        
+        // --- Initialization ---
+
+        window.onload = function() {
+            // 1. Generate Product Data
+            products = generateProducts(PRODUCT_COUNT);
+            
+            // 2. Initial Render
+            renderProducts();
+            renderCart();
+
+            // 3. Setup Event Listeners for cart sidebar toggle
+            toggleCartBtn.addEventListener('click', openCart);
+            closeCartBtn.addEventListener('click', closeCart);
+
+            // Hide the close button on desktop screens
+            const mediaQuery = window.matchMedia('(min-width: 1024px)');
+            function handleDesktopChange(e) {
+                if (e.matches) {
+                    closeCartBtn.classList.add('hidden');
+                } else {
+                    closeCartBtn.classList.remove('hidden');
+                }
+            }
+            handleDesktopChange(mediaQuery);
+            mediaQuery.addEventListener('change', handleDesktopChange);
+        };
+    </script>
+
+</body>
+</html>
